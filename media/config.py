@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     video_provider_url: str = ""
     voice_provider_url: str = ""
     provider_key: SecretStr = SecretStr("")
+    video_provider: str = "local"
+    local_video_output_dir: str = "/tmp/ai-kids-media/videos"
+    local_video_duration: int = Field(default=30, ge=10, le=60)
     lease_seconds: int = Field(default=600, ge=300, le=3600)
     max_attempts: int = Field(default=3, ge=1, le=10)
     daily_videos_enabled: bool = True
@@ -47,16 +50,13 @@ class Settings(BaseSettings):
         ZoneInfo(self.daily_video_timezone)
         if self.daily_video_age_min > self.daily_video_age_max:
             raise ValueError("Daily video age range is invalid")
+        if self.video_provider not in ("local", "gateway"):
+            raise ValueError("VIDEO_PROVIDER must be local or gateway")
         operator = self.operator_key.get_secret_value()
         reviewer = self.reviewer_key.get_secret_value()
         if len(operator) < 32 or len(reviewer) < 32 or operator == reviewer:
             raise ValueError("Distinct operator/reviewer secrets of at least 32 characters are required")
-        for url in (
-            self.text_provider_url,
-            self.image_provider_url,
-            self.video_provider_url,
-            self.voice_provider_url,
-        ):
+        for url in (self.text_provider_url, self.image_provider_url, self.video_provider_url, self.voice_provider_url):
             if url and not url.startswith("https://"):
                 raise ValueError("Provider endpoints must use HTTPS")
 
