@@ -15,6 +15,7 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
     from diffusers import AutoencoderKLWan, WanPipeline
     from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
     from diffusers.utils import export_to_video
+    from torch.nn.attention import SDPBackend, sdpa_kernel
 
     if not torch.cuda.is_available():
         raise RuntimeError("Select a GPU runtime first. No CPU or paid fallback is enabled.")
@@ -26,7 +27,8 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
         raise ValueError("Each opening scene needs a detailed prompt of 20–2000 characters")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    # T4 may report emulated BF16 support, but its fused attention requires FP16.
+    dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
     vae = AutoencoderKLWan.from_pretrained(
         MODEL_ID, revision=MODEL_REVISION, subfolder="vae", torch_dtype=torch.float32
     )
@@ -42,13 +44,16 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
             "Original colorful 2D cartoon animation, clear expressive characters, gentle motion, "
             "family friendly, no existing franchise characters, no text, no logos. " + scene
         )
-        video = pipe(
-            prompt=prompt,
-            negative_prompt="violence, sexual content, horror, weapons, gore, nudity, text, watermarks, "
-                            "deformed faces, extra limbs, blurry, flickering",
-            height=832, width=480, num_frames=81, num_inference_steps=30,
-            guidance_scale=6.0, generator=torch.Generator(device="cpu").manual_seed(seed + index),
-        ).frames[0]
+        print(f"Generating scene {index + 1}/{len(scenes)} with {dtype}, 368x640", flush=True)
+        # Forbid the quadratic-memory math fallback that exhausted the free T4.
+        with sdpa_kernel([SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION]):
+            video = pipe(
+                prompt=prompt,
+                negative_prompt="violence, sexual content, horror, weapons, gore, nudity, text, watermarks, "
+                                "deformed faces, extra limbs, blurry, flickering",
+                height=640, width=368, num_frames=81, num_inference_steps=30,
+                guidance_scale=6.0, generator=torch.Generator(device="cpu").manual_seed(seed + index),
+            ).frames[0]
         frames.extend(video)
     target = output_dir / "teaser.mp4"
     export_to_video(frames, str(target), fps=16)

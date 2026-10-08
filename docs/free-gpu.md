@@ -39,6 +39,14 @@ If this happens, check account phone verification at Kaggle Settings, then enabl
 GPU T4 x2 and Internet in Notebook options and restart. An API token and a reported
 GPU quota alone do not prove the notebook has GPU access.
 
+A subsequent session confirmed a Tesla T4 and working Internet, but full-size
+attention exhausted VRAM. The notebook now uses FP16 on T4 (native BF16 only on
+newer GPUs), requests 368x640 footage and permits only fused SDPA attention
+backends. This avoids silently using the attention math implementation that
+requested approximately 48 GB. These changes are being tested on Kaggle; they
+do not yet constitute a verified finished-video result. The importer still
+normalizes successful footage to 720x1280, which is upscaling, not extra detail.
+
 Free GPU availability, RAM, disk, quotas and session lifetimes vary. CPU offloading
 reduces VRAM pressure but needs host RAM. A failed or unavailable GPU session stops
 without a paid fallback. Start with one scene and reduce the frame count to 49
