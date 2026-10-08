@@ -74,7 +74,7 @@ subprocess.run([
         f"SCENES = {example['scenes']!r}\n"
         "OUTPUT_DIR = '/kaggle/working/cartoon-teaser' if os.path.isdir('/kaggle/working') else '/content/cartoon-teaser'\n"
         "# Four scenes: 81 frames each at 16 fps = 20.25 seconds. Maximum five scenes.\n"
-        "video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7)\n"
+        f"video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7, low_ram={profile == 'colab'})\n"
         "display(Video(str(video), embed=True))\n"
     )
     code(config)
