@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     voice_provider_url: str = ""
     provider_key: SecretStr = SecretStr("")
     video_provider: str = "local"
-    local_video_output_dir: str = "/tmp/ai-kids-media/videos"
+    local_video_output_dir: str = "/data/videos"
     local_video_duration: int = Field(default=30, ge=10, le=60)
     lease_seconds: int = Field(default=600, ge=300, le=3600)
     max_attempts: int = Field(default=3, ge=1, le=10)
@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     merchant_terms_url: str = ""
     public_domain: str = ""
     tls_email: str = ""
+
+    @property
+    def generation_configured(self):
+        return bool(self.text_provider_url and (self.video_provider == "local" or self.video_provider_url))
 
     def validate_security(self):
         ZoneInfo(self.daily_video_timezone)

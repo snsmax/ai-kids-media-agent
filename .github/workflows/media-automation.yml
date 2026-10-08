@@ -35,6 +35,7 @@ jobs:
           REVIEWER_KEY: ${{ secrets.REVIEWER_KEY }}
           PROVIDER_KEY: ${{ secrets.PROVIDER_KEY }}
           TEXT_PROVIDER_URL: ${{ vars.TEXT_PROVIDER_URL }}
+          VIDEO_PROVIDER: ${{ vars.VIDEO_PROVIDER || 'local' }}
           VIDEO_PROVIDER_URL: ${{ vars.VIDEO_PROVIDER_URL }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           INSTAGRAM_USER_ID: ${{ vars.INSTAGRAM_USER_ID }}
@@ -46,7 +47,9 @@ jobs:
           required = ['MONGO_URI', 'REDIS_URL', 'OPERATOR_KEY', 'REVIEWER_KEY']
           mode = os.environ.get('BATCH_MODE', 'all')
           if mode in ('all', 'generate'):
-              required += ['PROVIDER_KEY', 'TEXT_PROVIDER_URL', 'VIDEO_PROVIDER_URL']
+              required += ['PROVIDER_KEY', 'TEXT_PROVIDER_URL']
+              if os.environ.get('VIDEO_PROVIDER', 'local') == 'gateway':
+                  required += ['VIDEO_PROVIDER_URL']
           if mode in ('all', 'publish'):
               required += ['INSTAGRAM_ACCESS_TOKEN', 'INSTAGRAM_USER_ID', 'INSTAGRAM_API_VERSION']
           missing = [key for key in required if not os.environ.get(key)]
@@ -75,6 +78,9 @@ jobs:
       REVIEWER_KEY: ${{ secrets.REVIEWER_KEY }}
       PROVIDER_KEY: ${{ secrets.PROVIDER_KEY }}
       TEXT_PROVIDER_URL: ${{ vars.TEXT_PROVIDER_URL }}
+      VIDEO_PROVIDER: ${{ vars.VIDEO_PROVIDER || 'local' }}
+      LOCAL_VIDEO_OUTPUT_DIR: ${{ vars.LOCAL_VIDEO_OUTPUT_DIR || '/data/videos' }}
+      PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
       VIDEO_PROVIDER_URL: ${{ vars.VIDEO_PROVIDER_URL }}
       INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
       INSTAGRAM_USER_ID: ${{ vars.INSTAGRAM_USER_ID }}

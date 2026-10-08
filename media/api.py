@@ -1,12 +1,14 @@
+import re
 import secrets
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
 import redis
 import structlog
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, model_validator
 from pymongo import timeout as mongo_timeout
 from pymongo.errors import PyMongoError
@@ -87,6 +89,26 @@ def create_app(config=None, db=None, broker=None, providers=None, telegram=None)
         title="Children's Media Operations", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None
     )
 
+    def video_file(filename):
+        if not re.fullmatch(r"[a-f0-9]{32}\.mp4", filename):
+            raise HTTPException(404, "Video not found")
+        target = Path(config.local_video_output_dir).resolve() / filename
+        if not target.is_file() or target.is_symlink():
+            raise HTTPException(404, "Video not found")
+        return target
+
+    @app.get("/media/videos/{filename}")
+    def approved_video(filename: str):
+        url = f"https://{config.public_domain}/media/videos/{filename}"
+        content = db.content.find_one({"assets": {"$elemMatch": {"type": "video", "url": url}}})
+        if not content or content.get("status") not in ("approved", "publishing", "published"):
+            raise HTTPException(404, "Video not found")
+        if not db.reviews.find_one({"content_id": content["_id"], "digest": digest(content),
+                                   "approved": True, "reviewer": "human"}):
+            raise HTTPException(404, "Video not found")
+        return FileResponse(video_file(filename), media_type="video/mp4",
+                            headers={"Cache-Control": "no-store"})
+
     @app.exception_handler(JobConflict)
     async def job_conflict(request, exc):
         return JSONResponse(
@@ -99,6 +121,11 @@ def create_app(config=None, db=None, broker=None, providers=None, telegram=None)
 
     def operator(x_api_key: str = Header(default="")):
         auth(config.operator_key, x_api_key)
+
+    @app.get("/operator/videos/{filename}", dependencies=[Depends(operator)])
+    def preview_video(filename: str):
+        return FileResponse(video_file(filename), media_type="video/mp4",
+                            headers={"Cache-Control": "no-store"})
 
     def reviewer(x_api_key: str = Header(default="")):
         auth(config.reviewer_key, x_api_key)
@@ -327,7 +354,7 @@ def create_app(config=None, db=None, broker=None, providers=None, telegram=None)
             "content_language": config.content_language,
             "secondary_market": config.secondary_market,
             "lower_priority_market": config.lower_priority_market,
-            "providers_configured": bool(config.text_provider_url and config.video_provider_url),
+            "providers_configured": config.generation_configured,
             "recent_batches": list(db.daily_batches.find({}, {"briefs": 0}).sort("day", -1).limit(7)),
         }
 

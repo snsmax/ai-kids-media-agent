@@ -41,7 +41,7 @@ THEMES = (
 def schedule_daily(db, broker, config, timestamp=None):
     if not config.daily_videos_enabled:
         return {"state": "disabled", "job_ids": []}
-    if not config.text_provider_url or not config.video_provider_url:
+    if not config.generation_configured:
         return {"state": "waiting_for_providers", "job_ids": []}
     local = (timestamp or now()).astimezone(ZoneInfo(config.daily_video_timezone))
     day = local.date().isoformat()

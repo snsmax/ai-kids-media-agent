@@ -55,7 +55,14 @@ class Providers:
         key = config.provider_key.get_secret_value()
         self.text = GatewayProvider(config.text_provider_url, key, "text")
         self.image = GatewayProvider(config.image_provider_url, key, "asset_url")
-        self.video = GatewayProvider(config.video_provider_url, key, "asset_url")
+        if config.video_provider == "local":
+            from media.local_video import LocalVideoProvider
+
+            self.video = LocalVideoProvider(
+                config.local_video_output_dir, config.local_video_duration, config.public_domain
+            )
+        else:
+            self.video = GatewayProvider(config.video_provider_url, key, "asset_url")
         self.voice = GatewayProvider(config.voice_provider_url, key, "asset_url")
 
 

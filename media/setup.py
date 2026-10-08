@@ -81,7 +81,7 @@ def readiness(config):
         ),
         "public_domain": valid_domain(config.public_domain),
         "tls_contact": bool(config.tls_email and "@" in config.tls_email),
-        "text_and_video_providers": bool(config.text_provider_url and config.video_provider_url),
+        "text_and_video_providers": config.generation_configured,
         "telegram_bot": bool(config.telegram_token.get_secret_value()),
         "instagram_account": Instagram(config).configured,
         "merchant_support_and_terms": bool(
