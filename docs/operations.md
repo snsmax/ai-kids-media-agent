@@ -1,0 +1,11 @@
+# Operations and release verification
+
+Before deployment run `pytest`, `ruff check .`, and `docker compose config` with valid `.env`; start Compose and verify readiness. Tests use **only** test-local `mongomock`, `fakeredis`, fake AI and fake Telegram adapters; they do not assert that a vendor integration is operational. Run real MongoDB and Redis smoke tests and gateway sandbox tests before launch. Review container images and resolved dependency versions in your deployment pipeline. Pin images by digest and retain the build SBOM for production releases.
+
+Verify a real configured gateway can produce content, simulate a transient failure, and check retries deduplicate by stage. Check unsupported/missing providers fail visibly. Complete a human review and publish to a private Telegram test channel. Confirm the same update/job is not sent twice. Confirm rejected/unreviewed content cannot publish and altered content cannot reuse old approval. Check every asset URL is immutable and all media are manually inspected.
+
+For an uncertain external job, stop processing that content, inspect Telegram destination history and job timestamps, and determine whether the send took place. If delivered, record verified message ID and mark content published/job done through an audited admin procedure. If definitely not delivered, clear the publication lock and schedule a new audited delivery only after revalidating the digest and approval. If the result cannot be determined, keep it blocked. Never blindly change all uncertain jobs to queued.
+
+Failed generation jobs retain error class and attempt count. Fix configuration/provider issues before creating a new workflow with a new idempotency key. There is no bulk retry endpoint. Rotate secrets through deployment config and restart API/workers; verify Telegram's registered webhook secret matches. Never log full Bot API URLs because the token appears in the path.
+
+Back up MongoDB including jobs/reviews/schema versions; restore to a staging environment and test recovery periodically. Maintain Redis persistence for diagnostics and latency but do not depend on Redis for durability. Add queue-depth, failure-count, uncertain-delivery and readiness monitoring. Put webhook request rate/size limits and TLS at the ingress. Set an approved retention policy for Telegram chat identifiers and review notes.

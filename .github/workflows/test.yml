@@ -1,0 +1,23 @@
+name: Backend checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:8.0
+        ports: ['27017:27017']
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+    env:
+      TEST_MONGO_URI: mongodb://localhost:27017
+      TEST_REDIS_URL: redis://localhost:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.lock && pip install --no-deps -e .
+      - run: ruff check .
+      - run: pytest
