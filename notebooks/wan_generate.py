@@ -76,7 +76,8 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
     frames = []
     for index, scene in enumerate(scenes):
         prompt_args = (
-            {"prompt_embeds": embeddings[index][0], "negative_prompt_embeds": embeddings[index][1]}
+            {"prompt_embeds": embeddings[index][0].to("cuda"),
+             "negative_prompt_embeds": embeddings[index][1].to("cuda")}
             if low_ram else {"prompt": prefix + scene, "negative_prompt": negative}
         )
         print(f"Generating scene {index + 1}/{len(scenes)} with {dtype}, 368x640", flush=True)
