@@ -24,8 +24,8 @@ Telegram, reviewer or operator credentials here.
 
 Model: [Wan 2.1 T2V 1.3B](https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B-Diffusers),
 Apache-2.0. Model revision and inference libraries are pinned below. The inference
-code follows the official Wan Diffusers example. GPU execution is unverified in
-this repository's CPU-only environment. Memory offload does not guarantee the
+code follows the official Wan Diffusers example. A five-second clip was generated
+on a Kaggle T4; local tests do not run GPU inference. Memory offload does not guarantee the
 model will fit every free runtime. Preserve model license/NOTICE if redistributing
 weights. The license does not guarantee rights or safety of generated outputs.
 """)
@@ -83,10 +83,24 @@ SCENES = [
     "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
     "stand beside a sunny cottage garden gate. Pippa points gently at a tiny seed on the ground. "
     "Milo kneels to look, his ears lifting with curiosity. Cheerful original storybook cartoon, "
-    "medium shot, camera steady, smooth gentle action. Show only this opening moment."
+    "medium shot, camera steady, smooth gentle action. Show only this opening moment.",
+    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
+    "are beside the same sunny cottage garden gate. Pippa carefully holds one tiny seed in her "
+    "open paw and shows it to Milo. Milo smiles and tilts his head. Original colorful 2D "
+    "storybook cartoon, medium close shot, steady camera, gentle natural motion.",
+    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
+    "walk slowly inside a sunny cottage garden. Milo points toward a shady patch beside a tree. "
+    "Pippa looks toward a sunny patch of soft soil. They calmly consider where their seed "
+    "could grow. Original colorful 2D storybook cartoon, wide shot, steady camera, gentle motion.",
+    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
+    "kneel beside an empty sunny patch of soil in their cottage garden. Pippa holds a tiny seed "
+    "in her open paw. They look at each other with curious hopeful smiles, wondering what "
+    "will happen next. Original colorful 2D storybook cartoon, steady medium shot, gentle motion. "
+    "Do not show a grown plant or reveal the ending."
 ]
 OUTPUT_DIR = "/kaggle/working/cartoon-teaser" if os.path.isdir('/kaggle/working') else '/content/cartoon-teaser'
-# 81 frames at 16 fps = roughly 5 seconds per scene. Try one first, maximum three.
+# 81 frames at 16 fps = 5.06 seconds per scene; four scenes produce 20.25 seconds.
+# Use one scene for a quick trial, up to five for a 25-second teaser.
 video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7)
 display(Video(str(video), embed=True))
 ''')

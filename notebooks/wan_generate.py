@@ -19,8 +19,8 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
 
     if not torch.cuda.is_available():
         raise RuntimeError("Select a GPU runtime first. No CPU or paid fallback is enabled.")
-    if len(full_story.strip()) < 100 or not 1 <= len(scenes) <= 3:
-        raise ValueError("Provide the complete story and one to three opening scene prompts")
+    if len(full_story.strip()) < 100 or not 1 <= len(scenes) <= 5:
+        raise ValueError("Provide the complete story and one to five opening scene prompts")
     if not 3 <= age_min <= age_max <= 17:
         raise ValueError("Invalid intended age range")
     if any(not isinstance(scene, str) or not 20 <= len(scene) <= 2000 for scene in scenes):
@@ -45,6 +45,11 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
             "family friendly, no existing franchise characters, no text, no logos. " + scene
         )
         print(f"Generating scene {index + 1}/{len(scenes)} with {dtype}, 368x640", flush=True)
+        def report_progress(pipeline, step_index, timestep, callback_kwargs):
+            if (step_index + 1) % 5 == 0:
+                print(f"Scene {index + 1}/{len(scenes)}: step {step_index + 1}/30", flush=True)
+            return callback_kwargs
+
         # Forbid the quadratic-memory math fallback that exhausted the free T4.
         with sdpa_kernel([SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION]):
             video = pipe(
@@ -53,7 +58,9 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
                                 "deformed faces, extra limbs, blurry, flickering",
                 height=640, width=368, num_frames=81, num_inference_steps=30,
                 guidance_scale=6.0, generator=torch.Generator(device="cpu").manual_seed(seed + index),
+                callback_on_step_end=report_progress,
             ).frames[0]
+        export_to_video(video, str(output_dir / f"scene-{index + 1}.mp4"), fps=16)
         frames.extend(video)
     target = output_dir / "teaser.mp4"
     export_to_video(frames, str(target), fps=16)

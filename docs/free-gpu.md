@@ -29,7 +29,7 @@ cartoon styling rather than drawing block characters. It generates silent footag
 voice, captions and product-specific Telegram links are not included. The model
 revision and selected Python dependencies are pinned, but the host-supplied PyTorch
 runtime varies. Backend tests do not prove model inference works on every free GPU.
-GPU inference has not yet been executed on a signed-in cloud session here.
+A real five-second silent cartoon was generated successfully on a signed-in Kaggle T4 session.
 
 The first Kaggle test was accepted with GPU enabled in its saved metadata, but
 execution failed: CUDA was unavailable and package downloads failed DNS resolution.
@@ -43,8 +43,8 @@ A subsequent session confirmed a Tesla T4 and working Internet, but full-size
 attention exhausted VRAM. The notebook now uses FP16 on T4 (native BF16 only on
 newer GPUs), requests 368x640 footage and permits only fused SDPA attention
 backends. This avoids silently using the attention math implementation that
-requested approximately 48 GB. These changes are being tested on Kaggle; they
-do not yet constitute a verified finished-video result. The importer still
+requested approximately 48 GB. These settings produced a verified five-second cartoon on Kaggle.
+Longer clips generate each scene independently and save scene checkpoints. The importer still
 normalizes successful footage to 720x1280, which is upscaling, not extra detail.
 
 Free GPU availability, RAM, disk, quotas and session lifetimes vary. CPU offloading

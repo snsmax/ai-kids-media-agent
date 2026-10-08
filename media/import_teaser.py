@@ -30,7 +30,7 @@ class TeaserManifest(BaseModel):
     model_id: str = Field(min_length=1, max_length=200)
     model_revision: str = Field(pattern=r"^[a-f0-9]{40}$")
     seed: int = Field(ge=0, le=2**32 - 1)
-    scene_prompts: list[str] = Field(min_length=1, max_length=3)
+    scene_prompts: list[str] = Field(min_length=1, max_length=5)
 
     @model_validator(mode="after")
     def validate_brief(self):
