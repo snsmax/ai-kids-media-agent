@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from zoneinfo import ZoneInfo
 
@@ -63,6 +64,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def settings():
-    value = Settings()
+    value = Settings(_env_file=None if os.environ.get("GITHUB_ACTIONS") == "true" else ".env")
     value.validate_security()
     return value

@@ -55,31 +55,42 @@ def enqueue(db, redis, kind, payload, key):
     return job["_id"]
 
 
-def claim(db, config):
+def claim(db, config, kinds=None):
+    def scoped(query):
+        if kinds is None:
+            return query
+        return {"$and": [query, {"kind": {"$in": sorted(kinds)}}]}
+
     timestamp = now()
     # External publication is never automatically retried after an uncertain result.
     db.jobs.update_many(
-        {
-            "state": "running",
-            "lease_until": {"$lt": timestamp},
-            "kind": {"$in": EXTERNAL_KINDS},
-        },
+        scoped(
+            {
+                "state": "running",
+                "lease_until": {"$lt": timestamp},
+                "kind": {"$in": EXTERNAL_KINDS},
+            }
+        ),
         {"$set": {"state": "uncertain", "error": "Delivery requires reconciliation"}},
     )
     db.jobs.update_many(
-        {
-            "state": "running",
-            "lease_until": {"$lt": timestamp},
-            "kind": {"$nin": EXTERNAL_KINDS},
-        },
+        scoped(
+            {
+                "state": "running",
+                "lease_until": {"$lt": timestamp},
+                "kind": {"$nin": EXTERNAL_KINDS},
+            }
+        ),
         {"$set": {"state": "queued", "available_at": timestamp}},
     )
     db.jobs.update_many(
-        {"state": "queued", "attempts": {"$gte": config.max_attempts}},
+        scoped({"state": "queued", "attempts": {"$gte": config.max_attempts}}),
         {"$set": {"state": "failed", "error": "Attempt limit reached"}},
     )
     return db.jobs.find_one_and_update(
-        {"state": "queued", "available_at": {"$lte": timestamp}, "attempts": {"$lt": config.max_attempts}},
+        scoped(
+            {"state": "queued", "available_at": {"$lte": timestamp}, "attempts": {"$lt": config.max_attempts}}
+        ),
         {
             "$set": {
                 "state": "running",

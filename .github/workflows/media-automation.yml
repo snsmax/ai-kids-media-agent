@@ -1,0 +1,99 @@
+name: Daily media automation
+on:
+  schedule:
+    # Hourly checks handle America/New_York DST and reviewed uploads throughout the day.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Work to run
+        type: choice
+        options: [all, generate, publish]
+        default: all
+  push:
+    branches: [main]
+    paths: ['.github/workflows/media-automation.yml']
+permissions:
+  contents: read
+concurrency:
+  group: media-business-automation
+  cancel-in-progress: false
+jobs:
+  configuration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        name: Check runner configuration without printing credentials
+        env:
+          ENABLED: ${{ vars.KIDS_MEDIA_AUTOMATION_ENABLED }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          OPERATOR_KEY: ${{ secrets.OPERATOR_KEY }}
+          REVIEWER_KEY: ${{ secrets.REVIEWER_KEY }}
+          PROVIDER_KEY: ${{ secrets.PROVIDER_KEY }}
+          TEXT_PROVIDER_URL: ${{ vars.TEXT_PROVIDER_URL }}
+          VIDEO_PROVIDER_URL: ${{ vars.VIDEO_PROVIDER_URL }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ vars.INSTAGRAM_USER_ID }}
+          INSTAGRAM_API_VERSION: ${{ vars.INSTAGRAM_API_VERSION }}
+          BATCH_MODE: ${{ inputs.mode || 'all' }}
+        run: |
+          python - <<'PY'
+          import os
+          required = ['MONGO_URI', 'REDIS_URL', 'OPERATOR_KEY', 'REVIEWER_KEY']
+          mode = os.environ.get('BATCH_MODE', 'all')
+          if mode in ('all', 'generate'):
+              required += ['PROVIDER_KEY', 'TEXT_PROVIDER_URL', 'VIDEO_PROVIDER_URL']
+          if mode in ('all', 'publish'):
+              required += ['INSTAGRAM_ACCESS_TOKEN', 'INSTAGRAM_USER_ID', 'INSTAGRAM_API_VERSION']
+          missing = [key for key in required if not os.environ.get(key)]
+          enabled = os.environ.get('ENABLED', '').lower() == 'true'
+          ready = enabled and not missing
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('ready=' + str(ready).lower() + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('## Media automation configuration\n')
+              f.write('Enabled: ' + str(enabled) + '\n\n')
+              f.write('Missing configuration names: ' + (', '.join(missing) or 'none') + '\n\n')
+              f.write('Requires an online self-hosted Linux runner labeled kids-media and persistent databases. ')
+              f.write('This is a field-presence check, not proof of working integrations. ')
+              f.write('No business jobs run until enabled and configured.\n')
+          PY
+  batch:
+    needs: configuration
+    if: needs.configuration.outputs.ready == 'true'
+    runs-on: [self-hosted, linux, kids-media]
+    timeout-minutes: 120
+    env:
+      MONGO_URI: ${{ secrets.MONGO_URI }}
+      MONGO_DATABASE: ${{ vars.MONGO_DATABASE || 'children_media' }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      OPERATOR_KEY: ${{ secrets.OPERATOR_KEY }}
+      REVIEWER_KEY: ${{ secrets.REVIEWER_KEY }}
+      PROVIDER_KEY: ${{ secrets.PROVIDER_KEY }}
+      TEXT_PROVIDER_URL: ${{ vars.TEXT_PROVIDER_URL }}
+      VIDEO_PROVIDER_URL: ${{ vars.VIDEO_PROVIDER_URL }}
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_USER_ID: ${{ vars.INSTAGRAM_USER_ID }}
+      INSTAGRAM_API_VERSION: ${{ vars.INSTAGRAM_API_VERSION }}
+      INSTAGRAM_AUTO_PUBLISH: 'true'
+      DAILY_VIDEO_COUNT: '20'
+      DAILY_VIDEO_HOUR: '9'
+      DAILY_VIDEO_TIMEZONE: America/New_York
+      PRIMARY_MARKET: US
+      CONTENT_LANGUAGE: en-US
+      BATCH_MODE: ${{ inputs.mode || 'all' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install isolated application runtime
+        run: |
+          python3 -m venv .venv-actions
+          .venv-actions/bin/pip install -r requirements.lock
+          .venv-actions/bin/pip install --no-deps .
+      - name: Run bounded generation and reviewed publishing
+        run: .venv-actions/bin/python -m media.batch --mode "$BATCH_MODE" --max-jobs 200 --max-seconds 5400

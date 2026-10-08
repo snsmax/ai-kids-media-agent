@@ -1,5 +1,7 @@
 name: Backend checks
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,3 +23,7 @@ jobs:
       - run: pip install -r requirements-dev.lock && pip install --no-deps -e .
       - run: ruff check .
       - run: pytest
+      - name: Build backend image
+        run: docker build -t kids-media-ci .
+      - name: Build single-container Space image
+        run: docker build -f deploy/huggingface/Dockerfile -t kids-media-space-ci .

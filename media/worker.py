@@ -14,8 +14,8 @@ from media.store import connect, now
 log = structlog.get_logger()
 
 
-def run_one(db, broker, config, master):
-    job = claim(db, config)
+def run_one(db, broker, config, master, kinds=None):
+    job = claim(db, config, kinds=kinds)
     if not job:
         return False
     query = {"_id": job["_id"], "claim_token": job["claim_token"], "state": "running"}

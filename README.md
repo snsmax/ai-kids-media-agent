@@ -4,6 +4,8 @@ FastAPI + MongoDB + Redis, with mandatory human safety review, daily video gener
 
 ## Start
 
+For the selected GitHub Actions setup, see [github-actions.md](docs/github-actions.md): CI builds/tests run on hosted runners; daily generation/reviewed uploads run on a configured self-hosted `kids-media` Linux runner. Production automation stays disabled until real secrets, databases and the runner are configured. Telegram payments continue to require an always-on API host.
+
 For a continuously running cloud deployment, use the [cloud setup guide](docs/cloud-setup.md), `python -m media.setup init`, and the HTTPS `compose.production.yaml` override. Bootstrap generates local secrets without printing them; live service account fields remain empty until supplied by the owner.
 
 For the user's selected Hugging Face target, use [huggingface-setup.md](docs/huggingface-setup.md). Docker Space files and a supervised API/worker/scheduler runtime are prepared, but standard external MongoDB/Redis ports are blocked and basic hardware can sleep; verified compatible persistent databases and always-on hosting are launch requirements. No live deployment is claimed.
