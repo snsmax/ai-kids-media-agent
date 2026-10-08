@@ -31,6 +31,14 @@ revision and selected Python dependencies are pinned, but the host-supplied PyTo
 runtime varies. Backend tests do not prove model inference works on every free GPU.
 GPU inference has not yet been executed on a signed-in cloud session here.
 
+The first Kaggle test was accepted with GPU enabled in its saved metadata, but
+execution failed: CUDA was unavailable and package downloads failed DNS resolution.
+Treat this as a failed CPU/offline session, not a successful GPU deployment. The
+notebook now checks actual GPU and Internet access before installing anything.
+If this happens, check account phone verification at Kaggle Settings, then enable
+GPU T4 x2 and Internet in Notebook options and restart. An API token and a reported
+GPU quota alone do not prove the notebook has GPU access.
+
 Free GPU availability, RAM, disk, quotas and session lifetimes vary. CPU offloading
 reduces VRAM pressure but needs host RAM. A failed or unavailable GPU session stops
 without a paid fallback. Start with one scene and reduce the frame count to 49

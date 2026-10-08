@@ -29,16 +29,39 @@ this repository's CPU-only environment. Memory offload does not guarantee the
 model will fit every free runtime. Preserve model license/NOTICE if redistributing
 weights. The license does not guarantee rights or safety of generated outputs.
 """)
-    code("""# GPU-only dependencies; do not install these into the production backend.
-%pip install diffusers==0.35.1 transformers==4.56.2 accelerate==1.10.1 ftfy==6.3.1 imageio-ffmpeg==0.6.0 sentencepiece==0.2.1
-""")
-    code("""import torch
+    code("""# Check the actual runtime before downloading packages or model weights.
+import urllib.error
+import urllib.request
 
+import torch
+
+print("PyTorch:", torch.__version__, "CUDA build:", torch.version.cuda)
 if not torch.cuda.is_available():
-    raise RuntimeError("Select a GPU runtime. There is no paid fallback.")
+    raise RuntimeError(
+        "This session has no accessible GPU. Kaggle: complete account phone verification, "
+        "select GPU T4 x2 in Notebook options and restart the session. "
+        "Colab: select a GPU runtime and reconnect. Saved GPU settings alone are insufficient."
+    )
 print("GPU:", torch.cuda.get_device_name(0))
 print("VRAM GB:", round(torch.cuda.get_device_properties(0).total_memory / 2**30, 1))
+try:
+    with urllib.request.urlopen("https://pypi.org/simple/diffusers/", timeout=15) as response:
+        print("Package network check:", response.status)
+except (urllib.error.URLError, TimeoutError) as exc:
+    raise RuntimeError(
+        "Internet is unavailable. Kaggle: enable Internet in Notebook options after account "
+        "verification, then restart. No paid fallback is enabled."
+    ) from exc
 # CPU RAM and disk are also required; model weights are a substantial download.
+""")
+    code("""# GPU-only dependencies. Stop immediately if installation fails.
+import subprocess
+import sys
+
+subprocess.run([
+    sys.executable, "-m", "pip", "install", "diffusers==0.35.1", "transformers==4.56.2",
+    "accelerate==1.10.1", "ftfy==6.3.1", "imageio-ffmpeg==0.6.0", "sentencepiece==0.2.1"
+], check=True)
 """)
     source = (root / "notebooks/wan_generate.py").read_text(encoding="utf-8")
     code(source.split('"""', 2)[2].lstrip())

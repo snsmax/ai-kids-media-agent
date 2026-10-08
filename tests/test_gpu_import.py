@@ -110,6 +110,15 @@ def test_notebook_has_compilable_code_and_no_saved_outputs():
     assert "b7f0d36dfbc20355d3184ad63c709d888cdb640f" in source
 
 
+def test_notebook_checks_actual_gpu_and_network_before_installing():
+    root = Path(__file__).resolve().parent.parent
+    notebook = json.loads((root / "notebooks/free_cartoon_teaser.ipynb").read_text())
+    cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
+    assert "torch.cuda.is_available()" in cells[0]
+    assert "urllib.request.urlopen" in cells[0]
+    assert "subprocess.run" in cells[1] and "check=True" in cells[1]
+
+
 @pytest.mark.skipif(not (shutil.which("ffmpeg") and shutil.which("ffprobe")),
                     reason="Real media integration requires FFmpeg and ffprobe")
 def test_real_mp4_import_and_decode(env, tmp_path):
