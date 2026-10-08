@@ -4,6 +4,10 @@ FastAPI + MongoDB + Redis, with mandatory human safety review, daily video gener
 
 ## Start
 
+For a continuously running cloud deployment, use the [cloud setup guide](docs/cloud-setup.md), `python -m media.setup init`, and the HTTPS `compose.production.yaml` override. Bootstrap generates local secrets without printing them; live service account fields remain empty until supplied by the owner.
+
+For the user's selected Hugging Face target, use [huggingface-setup.md](docs/huggingface-setup.md). Docker Space files and a supervised API/worker/scheduler runtime are prepared, but standard external MongoDB/Redis ports are blocked and basic hardware can sleep; verified compatible persistent databases and always-on hosting are launch requirements. No live deployment is claimed.
+
 1. Copy `.env.example` to `.env`. Generate independent random operator/reviewer secrets (at least 32 characters). Supply database credentials and optionally provider/Telegram credentials from your secret manager.
 2. For Compose set `MONGO_URI` to `mongodb://<URL-encoded-user>:<URL-encoded-password>@mongo:27017/?authSource=admin` and `REDIS_URL` to `redis://:<URL-encoded-password>@redis:6379/0`. The bootstrap account is for local deployment; use a least-privilege MongoDB application account in production.
 3. Run `docker compose up --build -d`. The migration service creates versioned indexes before API/worker startup. MongoDB and Redis have persistent volumes and no host ports.

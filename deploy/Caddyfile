@@ -1,0 +1,15 @@
+{
+    email {$TLS_EMAIL}
+}
+
+{$PUBLIC_DOMAIN} {
+    encode zstd gzip
+    request_body {
+        max_size 1MB
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+    }
+    reverse_proxy api:8000
+}

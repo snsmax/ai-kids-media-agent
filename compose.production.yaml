@@ -1,0 +1,29 @@
+# Use alongside compose.yaml on a Linux cloud server.
+services:
+  mongo:
+    environment:
+      MONGO_DATABASE: ${MONGO_DATABASE:-children_media}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Required}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Required}
+    volumes:
+      - ./deploy/mongo-init.js:/docker-entrypoint-initdb.d/01-app-user.js:ro
+  caddy:
+    image: caddy:2
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Set your public domain}
+      TLS_EMAIL: ${TLS_EMAIL:?Set a TLS contact email}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

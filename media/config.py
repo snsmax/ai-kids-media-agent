@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     reference_price_usd_cents: int = Field(default=500, ge=1)
     merchant_support: str = ""
     merchant_terms_url: str = ""
+    public_domain: str = ""
+    tls_email: str = ""
 
     def validate_security(self):
         ZoneInfo(self.daily_video_timezone)
