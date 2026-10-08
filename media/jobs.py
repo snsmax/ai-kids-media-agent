@@ -13,6 +13,21 @@ class JobConflict(RuntimeError):
     pass
 
 
+EXTERNAL_KINDS = [
+    "publish",
+    "telegram_reply",
+    "telegram_invoice",
+    "deliver_order",
+    "refund_order",
+    "instagram_publish",
+]
+
+
+class JobDeferred(RuntimeError):
+    def __init__(self, seconds=30):
+        self.seconds = seconds
+
+
 def enqueue(db, redis, kind, payload, key):
     job = {
         "_id": str(uuid.uuid4()),
@@ -47,7 +62,7 @@ def claim(db, config):
         {
             "state": "running",
             "lease_until": {"$lt": timestamp},
-            "kind": {"$in": ["publish", "telegram_reply"]},
+            "kind": {"$in": EXTERNAL_KINDS},
         },
         {"$set": {"state": "uncertain", "error": "Delivery requires reconciliation"}},
     )
@@ -55,7 +70,7 @@ def claim(db, config):
         {
             "state": "running",
             "lease_until": {"$lt": timestamp},
-            "kind": {"$nin": ["publish", "telegram_reply"]},
+            "kind": {"$nin": EXTERNAL_KINDS},
         },
         {"$set": {"state": "queued", "available_at": timestamp}},
     )

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from zoneinfo import ZoneInfo
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,11 +23,26 @@ class Settings(BaseSettings):
     max_attempts: int = Field(default=3, ge=1, le=10)
     daily_videos_enabled: bool = True
     daily_video_count: int = Field(default=20, ge=1, le=200)
-    daily_video_hour_ist: int = Field(default=9, ge=0, le=23)
+    daily_video_hour: int = Field(default=9, ge=0, le=23)
+    daily_video_timezone: str = "America/New_York"
+    primary_market: str = Field(default="US", pattern=r"^[A-Z]{2}$")
+    content_language: str = Field(default="en-US", pattern=r"^[a-z]{2}-[A-Z]{2}$")
+    secondary_market: str = "Europe"
+    lower_priority_market: str = "Asia"
     daily_video_age_min: int = Field(default=4, ge=3, le=17)
     daily_video_age_max: int = Field(default=7, ge=3, le=17)
+    instagram_access_token: SecretStr = SecretStr("")
+    instagram_user_id: str = ""
+    instagram_api_version: str = ""
+    instagram_auto_publish: bool = True
+    telegram_sales_enabled: bool = True
+    product_price_stars: int = Field(default=250, ge=1, le=100000)
+    reference_price_usd_cents: int = Field(default=500, ge=1)
+    merchant_support: str = ""
+    merchant_terms_url: str = ""
 
     def validate_security(self):
+        ZoneInfo(self.daily_video_timezone)
         if self.daily_video_age_min > self.daily_video_age_max:
             raise ValueError("Daily video age range is invalid")
         operator = self.operator_key.get_secret_value()

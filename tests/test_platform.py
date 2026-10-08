@@ -149,7 +149,7 @@ def test_provider_fails_closed():
 def test_migrations_repeatable(env):
     _, db, _, _ = env
     migrate(db)
-    assert db.schema_versions.count_documents({}) == 2
+    assert db.schema_versions.count_documents({}) == 3
 
 
 def test_failed_telegram_send_is_not_retried(env):

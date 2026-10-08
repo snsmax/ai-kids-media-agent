@@ -2,18 +2,18 @@
 
 import signal
 import threading
-from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import redis
 import structlog
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from media.config import settings
+from media.instagram import queue_approved_videos
 from media.jobs import enqueue
 from media.logging import configure
 from media.store import connect, now
 
-IST = timezone(timedelta(hours=5, minutes=30))
 THEMES = (
     "sharing",
     "kindness",
@@ -43,9 +43,9 @@ def schedule_daily(db, broker, config, timestamp=None):
         return {"state": "disabled", "job_ids": []}
     if not config.text_provider_url or not config.video_provider_url:
         return {"state": "waiting_for_providers", "job_ids": []}
-    local = (timestamp or now()).astimezone(IST)
+    local = (timestamp or now()).astimezone(ZoneInfo(config.daily_video_timezone))
     day = local.date().isoformat()
-    if local.hour >= config.daily_video_hour_ist:
+    if local.hour >= config.daily_video_hour:
         # Freeze the count and prompts on first invocation. Config changes apply next day.
         manifest = {
             "_id": "daily-videos:" + day,
@@ -53,6 +53,8 @@ def schedule_daily(db, broker, config, timestamp=None):
             "count": config.daily_video_count,
             "queued": False,
             "created_at": now(),
+            "timezone": config.daily_video_timezone,
+            "market": config.primary_market,
             "briefs": [
                 {
                     "theme": f"An original short story about {THEMES[slot % len(THEMES)]}. "
@@ -63,6 +65,8 @@ def schedule_daily(db, broker, config, timestamp=None):
                     "illustrated": False,
                     "video": True,
                     "voice": False,
+                    "language": config.content_language,
+                    "market": config.primary_market,
                 }
                 for slot in range(config.daily_video_count)
             ],
@@ -93,6 +97,7 @@ def main():
     while not stopping.is_set():
         try:
             result = schedule_daily(db, broker, config)
+            queue_approved_videos(db, broker, config)
             if result["state"] == "scheduled":
                 log.info("daily_video_jobs_queued", count=len(result["job_ids"]))
             elif result["state"] == "waiting_for_providers":

@@ -8,13 +8,16 @@ import structlog
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
+from pymongo import timeout as mongo_timeout
 from pymongo.errors import PyMongoError
 
 from media.agents import AnalyticsAgent, MasterAgent
 from media.config import settings
+from media.instagram import queue_instagram
 from media.jobs import JobConflict, enqueue
 from media.logging import configure
-from media.providers import Providers, Telegram
+from media.payments import Payments, product_digest
+from media.providers import Providers, Telegram, UnconfiguredProvider
 from media.safety import digest, require_approval
 from media.store import connect, now
 
@@ -49,14 +52,31 @@ class Publication(BaseModel):
     chat_id: str = Field(pattern=r"^(?:-?\d{1,20}|@[A-Za-z0-9_]{5,32})$")
 
 
-def create_app(config=None, db=None, broker=None, providers=None):
+class ProductCreate(BaseModel):
+    content_id: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=32)
+    description: str = Field(min_length=1, max_length=255)
+    kind: Literal["storybook", "video"]
+
+
+class ProductState(BaseModel):
+    active: bool
+
+
+class ProductReview(BaseModel):
+    digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    approved: bool
+    notes: str = Field(min_length=10, max_length=3000)
+
+
+def create_app(config=None, db=None, broker=None, providers=None, telegram=None):
     config = config or settings()
     config.validate_security()
     db = db if db is not None else connect(config)
     broker = broker if broker is not None else redis.Redis.from_url(config.redis_url.get_secret_value())
-    master = MasterAgent(
-        db, broker, providers or Providers(config), Telegram(config.telegram_token.get_secret_value())
-    )
+    telegram = telegram or Telegram(config.telegram_token.get_secret_value())
+    master = MasterAgent(db, broker, providers or Providers(config), telegram, config)
+    payments = Payments(db, broker, config, telegram)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -108,7 +128,7 @@ def create_app(config=None, db=None, broker=None, providers=None):
         try:
             db.command("ping")
             broker.ping()
-            if not db.schema_versions.find_one({"_id": 2}):
+            if not db.schema_versions.find_one({"_id": 3}):
                 raise ValueError("Migrations required")
         except (PyMongoError, redis.RedisError, ValueError):
             raise HTTPException(503, "Dependencies unavailable") from None
@@ -116,11 +136,12 @@ def create_app(config=None, db=None, broker=None, providers=None):
 
     @app.post("/workflows", status_code=202, dependencies=[Depends(operator)])
     def start(brief: Brief, idempotency_key: str = Header(min_length=8, max_length=128)):
+        payload = {**brief.model_dump(), "language": config.content_language, "market": config.primary_market}
         key = "create:" + idempotency_key
         existing = db.jobs.find_one({"idempotency_key": key})
-        if existing and existing["payload"] != brief.model_dump():
+        if existing and existing["payload"] != payload:
             raise HTTPException(409, "Idempotency key already used for a different request")
-        return {"job_id": master.start(brief.model_dump(), idempotency_key)}
+        return {"job_id": master.start(payload, idempotency_key)}
 
     @app.get("/jobs/{job_id}", dependencies=[Depends(operator)])
     def get_job(job_id: str):
@@ -189,13 +210,123 @@ def create_app(config=None, db=None, broker=None, providers=None):
     def analytics():
         return AnalyticsAgent().snapshot(db)
 
+    @app.post("/content/{content_id}/instagram", status_code=202, dependencies=[Depends(operator)])
+    def instagram(content_id: str):
+        try:
+            return {"job_id": queue_instagram(db, broker, config, content(content_id))}
+        except PermissionError:
+            raise HTTPException(409, "Human approval required") from None
+        except UnconfiguredProvider:
+            raise HTTPException(503, "Instagram configuration required") from None
+        except ValueError:
+            raise HTTPException(
+                422, "A reviewed video and caption within Instagram limits are required"
+            ) from None
+
+    @app.post("/products", status_code=201, dependencies=[Depends(operator)])
+    def product_create(product: ProductCreate):
+        item = content(product.content_id)
+        try:
+            require_approval(db, item)
+        except PermissionError:
+            raise HTTPException(409, "Human approval required") from None
+        if product.kind == "video" and not any(a["type"] == "video" for a in item["assets"]):
+            raise HTTPException(422, "Reviewed video required")
+        value = {
+            "_id": str(uuid.uuid4()),
+            **product.model_dump(),
+            "digest": digest(item),
+            "price_stars": config.product_price_stars,
+            "reference_price_usd_cents": config.reference_price_usd_cents,
+            "currency": "XTR",
+            "active": False,
+            "status": "pending_review",
+            "created_at": now(),
+        }
+        value["listing_digest"] = product_digest(value)
+        db.products.insert_one(value)
+        return value
+
+    @app.get("/review/products/{product_id}", dependencies=[Depends(reviewer)])
+    def review_product_get(product_id: str):
+        value = db.products.find_one({"_id": product_id})
+        if not value:
+            raise HTTPException(404, "Product not found")
+        return value
+
+    @app.post("/products/{product_id}/review", dependencies=[Depends(reviewer)])
+    def review_product(product_id: str, decision: ProductReview):
+        product = review_product_get(product_id)
+        if product["status"] != "pending_review" or product_digest(product) != decision.digest:
+            raise HTTPException(409, "Product review is stale")
+        try:
+            payments.reviewed_content(product)
+        except (PermissionError, ValueError):
+            raise HTTPException(409, "Content approval required") from None
+        db.product_reviews.insert_one(
+            {
+                "_id": str(uuid.uuid4()),
+                "product_id": product_id,
+                "digest": decision.digest,
+                "approved": decision.approved,
+                "notes": decision.notes,
+                "at": now(),
+                "reviewer": "human",
+            }
+        )
+        result = db.products.update_one(
+            {"_id": product_id, "status": "pending_review", "listing_digest": decision.digest},
+            {
+                "$set": {
+                    "status": "approved" if decision.approved else "rejected",
+                    "active": decision.approved,
+                }
+            },
+        )
+        if not result.modified_count:
+            raise HTTPException(409, "Product was already reviewed")
+        return {"approved": decision.approved}
+
+    @app.put("/products/{product_id}/state", dependencies=[Depends(operator)])
+    def product_state(product_id: str, state: ProductState):
+        if state.active:
+            product = review_product_get(product_id)
+            try:
+                payments.reviewed_product(product)
+            except (PermissionError, ValueError):
+                raise HTTPException(409, "Product and content approval required") from None
+        result = db.products.update_one({"_id": product_id}, {"$set": {"active": state.active}})
+        if not result.matched_count:
+            raise HTTPException(404, "Product not found")
+        return {"active": state.active}
+
+    @app.get("/orders/{order_id}", dependencies=[Depends(operator)])
+    def get_order(order_id: str):
+        value = db.orders.find_one({"_id": order_id})
+        if not value:
+            raise HTTPException(404, "Order not found")
+        return value
+
+    @app.post("/orders/{order_id}/refund", status_code=202, dependencies=[Depends(operator)])
+    def refund(order_id: str):
+        order = get_order(order_id)
+        if order["state"] not in ("paid", "fulfilled", "delivery_blocked") or not order.get(
+            "telegram_charge_id"
+        ):
+            raise HTTPException(409, "Order is not refundable or needs reconciliation")
+        return {"job_id": enqueue(db, broker, "refund_order", {"order_id": order_id}, "refund:" + order_id)}
+
     @app.get("/schedule", dependencies=[Depends(operator)])
     def schedule():
         return {
             "enabled": config.daily_videos_enabled,
             "daily_video_count": config.daily_video_count,
-            "hour": config.daily_video_hour_ist,
-            "timezone": "Asia/Kolkata",
+            "hour": config.daily_video_hour,
+            "timezone": config.daily_video_timezone,
+            "primary_market": config.primary_market,
+            "content_language": config.content_language,
+            "secondary_market": config.secondary_market,
+            "lower_priority_market": config.lower_priority_market,
             "providers_configured": bool(config.text_provider_url and config.video_provider_url),
             "recent_batches": list(db.daily_batches.find({}, {"briefs": 0}).sort("day", -1).limit(7)),
         }
@@ -208,6 +339,18 @@ def create_app(config=None, db=None, broker=None, providers=None):
         update_id = update.get("update_id")
         if not isinstance(update_id, int) or isinstance(update_id, bool):
             raise HTTPException(422, "Invalid update_id")
+        query = update.get("pre_checkout_query")
+        if isinstance(query, dict):
+            try:
+                with mongo_timeout(3):
+                    payments.checkout(query)
+            except ValueError:
+                raise HTTPException(422, "Invalid checkout query") from None
+            except PyMongoError:
+                query_id = query.get("id")
+                if isinstance(query_id, str):
+                    telegram.answer_checkout(query_id, False)
+            return {"accepted": True}
         message = update.get("message")
         if not isinstance(message, dict):
             return {"accepted": True}
@@ -215,11 +358,48 @@ def create_app(config=None, db=None, broker=None, providers=None):
         if not isinstance(chat, dict):
             raise HTTPException(422, "Invalid chat")
         chat_id = chat.get("id")
-        if chat.get("type") != "private" or not isinstance(chat_id, int):
+        if chat.get("type") != "private" or type(chat_id) is not int or chat_id <= 0:
+            return {"accepted": True}
+        sender = message.get("from", {})
+        buyer_id = sender.get("id") if isinstance(sender, dict) else None
+        if isinstance(message.get("successful_payment"), dict) or isinstance(
+            message.get("refunded_payment"), dict
+        ):
+            if "successful_payment" in message and (type(buyer_id) is not int or buyer_id != chat_id):
+                raise HTTPException(422, "Invalid payment sender")
+            try:
+                if "successful_payment" in message:
+                    payments.successful(buyer_id, message["successful_payment"])
+                else:
+                    payments.refunded_event(chat_id, message["refunded_payment"])
+            except ValueError:
+                raise HTTPException(422, "Payment does not match an order") from None
             return {"accepted": True}
         text = message.get("text", "")
         command = text.split()[0] if isinstance(text, str) and text.split() else ""
-        if command not in ("/start", "/help", "/catalog"):
+        if command == "/buy":
+            parts = text.split()
+            if (
+                len(parts) == 3
+                and parts[2].lower() == "agree"
+                and type(buyer_id) is int
+                and buyer_id == chat_id
+                and len(parts[1]) <= 100
+            ):
+                enqueue(
+                    db,
+                    broker,
+                    "telegram_invoice",
+                    {
+                        "buyer_id": buyer_id,
+                        "product_id": parts[1],
+                        "request_key": "telegram:" + str(update_id),
+                    },
+                    "invoice:" + str(update_id),
+                )
+                return {"accepted": True}
+            command = "/terms"
+        if command not in ("/start", "/help", "/catalog", "/terms", "/paysupport"):
             return {"accepted": True}
         # Store commands only, never free-form conversations or child profiles.
         enqueue(

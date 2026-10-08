@@ -7,7 +7,7 @@ import structlog
 
 from media.agents import MasterAgent
 from media.config import settings
-from media.jobs import claim
+from media.jobs import EXTERNAL_KINDS, JobDeferred, claim
 from media.providers import Providers, Telegram, UnconfiguredProvider
 from media.store import connect, now
 
@@ -23,8 +23,16 @@ def run_one(db, broker, config, master):
         result = master.execute(job)
         db.jobs.update_one(query, {"$set": {"state": "done", "result": result, "finished_at": now()}})
         log.info("job_completed", job_id=job["_id"], kind=job["kind"])
+    except JobDeferred as exc:
+        db.jobs.update_one(
+            query,
+            {
+                "$set": {"state": "queued", "available_at": now() + timedelta(seconds=exc.seconds)},
+                "$inc": {"attempts": -1},
+            },
+        )
     except Exception as exc:  # noqa: BLE001 - job boundary records all failures without leaking secrets
-        external = job["kind"] in ("publish", "telegram_reply")
+        external = job["kind"] in EXTERNAL_KINDS
         terminal = isinstance(exc, (UnconfiguredProvider, PermissionError, ValueError))
         state = (
             "uncertain"
@@ -52,7 +60,9 @@ def main():
     config = settings()
     db = connect(config)
     broker = redis.Redis.from_url(config.redis_url.get_secret_value())
-    master = MasterAgent(db, broker, Providers(config), Telegram(config.telegram_token.get_secret_value()))
+    master = MasterAgent(
+        db, broker, Providers(config), Telegram(config.telegram_token.get_secret_value()), config
+    )
     stopping = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stopping.set())
     signal.signal(signal.SIGINT, lambda *_: stopping.set())

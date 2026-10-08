@@ -35,6 +35,8 @@ def env():
         reviewer_key="r" * 32,
         telegram_token="test-only-token",
         telegram_webhook_secret="test-webhook",
+        merchant_support="@test_only_support",
+        merchant_terms_url="https://merchant.example.test/terms",
     )
     db = mongomock.MongoClient(tz_aware=True).test
     broker = fakeredis.FakeRedis()

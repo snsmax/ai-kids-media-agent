@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "children-media-platform"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.32,<1", "pymongo>=4.10,<5", "redis>=5.2,<7", "httpx>=0.28,<1", "pydantic-settings>=2.6,<3", "structlog>=24.4,<27"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.32,<1", "pymongo>=4.10,<5", "redis>=5.2,<7", "httpx>=0.28,<1", "pydantic-settings>=2.6,<3", "structlog>=24.4,<27", "tzdata>=2025.1"]
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10", "mongomock>=4.3,<5", "fakeredis>=2.26,<3", "ruff>=0.9,<1"]

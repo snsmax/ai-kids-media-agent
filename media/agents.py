@@ -10,7 +10,8 @@ class StorybookAgent:
         prompt = (
             f"Write an original children's story for ages {brief['age_min']}-{brief['age_max']}. "
             "Avoid sexual content, graphic violence, dangerous instructions, personal data, "
-            f"discrimination and manipulative advertising. Theme: {brief['theme']}"
+            f"discrimination and manipulative advertising. Language: {brief.get('language', 'en-US')}. "
+            f"Primary audience: {brief.get('market', 'US')}. Theme: {brief['theme']}"
         )
         return providers.text.generate(prompt, job_id + ":story")
 
@@ -22,10 +23,10 @@ class VideoAgent:
 
 
 class MarketingAgent:
-    def run(self, providers, story, job_id):
+    def run(self, providers, story, job_id, language="en-US", market="US"):
         return providers.text.generate(
             "Write a short factual description for parents, without pressure or claims about "
-            "learning outcomes, for this story: " + story,
+            f"learning outcomes, in {language} for adult parents in {market}, for this story: " + story,
             job_id + ":marketing",
         )
 
@@ -84,14 +85,28 @@ class AnalyticsAgent:
 
 
 class MasterAgent:
-    def __init__(self, db, redis, providers, telegram):
+    def __init__(self, db, redis, providers, telegram, config=None):
         self.db, self.redis, self.providers, self.telegram = db, redis, providers, telegram
+        self.config = config
 
     def start(self, brief, request_key):
         return enqueue(self.db, self.redis, "create", brief, "create:" + request_key)
 
     def execute(self, job):
         payload, job_id = job["payload"], job["_id"]
+        if job["kind"] == "instagram_publish":
+            from media.instagram import Instagram, publish_video
+
+            return publish_video(self.db, job, Instagram(self.config))
+        if job["kind"] in ("telegram_invoice", "deliver_order", "refund_order"):
+            from media.payments import Payments
+
+            payment = Payments(self.db, self.redis, self.config, self.telegram)
+            if job["kind"] == "telegram_invoice":
+                return payment.invoice(payload)
+            if job["kind"] == "deliver_order":
+                return payment.deliver(payload["order_id"])
+            return payment.refund(payload["order_id"])
         if job["kind"] == "create":
             existing = self.db.content.find_one({"workflow_id": job_id})
             if existing:
@@ -115,8 +130,16 @@ class MasterAgent:
                 "age_max": payload["age_max"],
                 "story": story,
                 "assets": assets,
-                "marketing": MarketingAgent().run(self.providers, story, job_id),
+                "marketing": MarketingAgent().run(
+                    self.providers,
+                    story,
+                    job_id,
+                    payload.get("language", "en-US"),
+                    payload.get("market", "US"),
+                ),
                 "created_at": now(),
+                "language": payload.get("language", "en-US"),
+                "market": payload.get("market", "US"),
             }
             content.update(QualityControlAgent().run(content))
             # Fencing prevents a recovered worker from committing a stale result.
@@ -147,6 +170,24 @@ class MasterAgent:
             )
             return {"message_id": message_id}
         if job["kind"] == "telegram_reply":
+            if self.config:
+                from media.payments import Payments
+
+                payment = Payments(self.db, self.redis, self.config, self.telegram)
+                command = payload["command"]
+                if command == "/catalog":
+                    text = payment.catalog()
+                elif command == "/paysupport":
+                    text = "Payment support: " + (
+                        self.config.merchant_support or "Merchant support is not configured."
+                    )
+                elif command == "/terms":
+                    text = "Purchases are for adults (parents/guardians). Terms: " + (
+                        self.config.merchant_terms_url or "Sales are not configured."
+                    )
+                else:
+                    text = "Welcome, parents and guardians. Use /catalog, /terms and /paysupport. Please do not send children's personal data."
+                return {"message_id": self.telegram.send(payload["chat_id"], text)}
             return {
                 "message_id": self.telegram.send(
                     payload["chat_id"], TelegramSalesAgent().reply(self.db, payload)

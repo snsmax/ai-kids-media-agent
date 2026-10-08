@@ -11,6 +11,7 @@ def configured(env):
             update={
                 "text_provider_url": "https://text.example.test",
                 "video_provider_url": "https://video.example.test",
+                "daily_video_timezone": "Asia/Kolkata",
             }
         ),
         db,
@@ -72,4 +73,14 @@ def test_schedule_status_requires_operator(env):
     assert client.get("/schedule").status_code == 401
     result = client.get("/schedule", headers={"X-API-Key": "o" * 32}).json()
     assert result["daily_video_count"] == 20
-    assert result["timezone"] == "Asia/Kolkata"
+    assert result["timezone"] == "America/New_York"
+
+
+def test_new_york_schedule_observes_daylight_saving(env):
+    config, db, broker = configured(env)
+    config = config.model_copy(update={"daily_video_timezone": "America/New_York"})
+    # Before US fall-back, 09:00 New York = 13:00 UTC; afterwards = 14:00 UTC.
+    assert schedule_daily(db, broker, config, datetime(2026, 10, 30, 12, 59, tzinfo=UTC))["state"] == "idle"
+    assert len(schedule_daily(db, broker, config, datetime(2026, 10, 30, 13, 0, tzinfo=UTC))["job_ids"]) == 20
+    assert schedule_daily(db, broker, config, datetime(2026, 11, 2, 13, 59, tzinfo=UTC))["state"] == "idle"
+    assert len(schedule_daily(db, broker, config, datetime(2026, 11, 2, 14, 0, tzinfo=UTC))["job_ids"]) == 20
