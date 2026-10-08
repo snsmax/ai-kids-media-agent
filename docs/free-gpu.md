@@ -7,6 +7,23 @@ that is a model download, not a hosted inference service.
 
 ## Start a notebook
 
+Two separate original examples are provided:
+
+- Kaggle: `notebooks/free_cartoon_teaser.ipynb` — Milo and Pippa's mystery seed.
+- Colab: [Open Nori and Pip's missing kite in Colab](https://colab.research.google.com/github/snsmax/ai-kids-media-agent/blob/main/notebooks/colab_cartoon_teaser.ipynb).
+
+For Colab, sign in, save a private copy in Drive, choose Runtime → Change runtime
+type → T4 GPU, then Run all. Decline paid compute upgrades. The first cell checks
+GPU/Internet before downloading dependencies. Free GPU allocation and host RAM
+are not guaranteed; this notebook has been tested for code validity locally,
+but a real Colab GPU run must be verified separately. Download the ZIP when it
+finishes: temporary runtime files disappear when the session ends. No credentials
+are needed for the public model. Do not paste merchant tokens into either notebook.
+
+Both examples generate four opening scenes (20.25 seconds). Their full stories
+are public original samples; replace them in your private copy for paid products.
+`notebooks/story_examples.json` is the source for these distinct configurations.
+
 1. Sign into [Kaggle Code](https://www.kaggle.com/code) or
    [Google Colab](https://colab.research.google.com/).
 2. Upload `notebooks/free_cartoon_teaser.ipynb`. Keep it private because it contains

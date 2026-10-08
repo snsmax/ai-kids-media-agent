@@ -96,9 +96,10 @@ def test_overlong_or_invalid_media_is_not_imported(env, tmp_path, monkeypatch, d
     assert db.content.count_documents({}) == 0
 
 
-def test_notebook_has_compilable_code_and_no_saved_outputs():
+@pytest.mark.parametrize("filename", ["free_cartoon_teaser.ipynb", "colab_cartoon_teaser.ipynb"])
+def test_notebook_has_compilable_code_and_no_saved_outputs(filename):
     root = Path(__file__).resolve().parent.parent
-    notebook = json.loads((root / "notebooks/free_cartoon_teaser.ipynb").read_text())
+    notebook = json.loads((root / "notebooks" / filename).read_text())
     assert notebook["nbformat"] == 4
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
@@ -110,9 +111,10 @@ def test_notebook_has_compilable_code_and_no_saved_outputs():
     assert "b7f0d36dfbc20355d3184ad63c709d888cdb640f" in source
 
 
-def test_notebook_checks_actual_gpu_and_network_before_installing():
+@pytest.mark.parametrize("filename", ["free_cartoon_teaser.ipynb", "colab_cartoon_teaser.ipynb"])
+def test_notebook_checks_actual_gpu_and_network_before_installing(filename):
     root = Path(__file__).resolve().parent.parent
-    notebook = json.loads((root / "notebooks/free_cartoon_teaser.ipynb").read_text())
+    notebook = json.loads((root / "notebooks" / filename).read_text())
     cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
     assert "torch.cuda.is_available()" in cells[0]
     assert "urllib.request.urlopen" in cells[0]

@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 
 
-def build():
+def build(profile="kaggle"):
     root = Path(__file__).resolve().parent.parent
+    example = json.loads((root / "notebooks/story_examples.json").read_text(encoding="utf-8"))[profile]
     cells = []
 
     def markdown(source):
@@ -65,45 +66,18 @@ subprocess.run([
 """)
     source = (root / "notebooks/wan_generate.py").read_text(encoding="utf-8")
     code(source.split('"""', 2)[2].lstrip())
-    code('''# Replace this original example with your own complete story and opening scenes.
-import os
-
-from IPython.display import Video, display
-
-FULL_STORY = """Milo the little fox wore a blue scarf. His friend Pippa the rabbit wore a yellow vest.
-One morning they found a seed beside their garden gate. Milo wanted to plant it in the shade,
-but Pippa thought it needed sunshine. Instead of arguing, they asked Grandma Owl for help.
-She showed them a sunny patch and helped them make a little hole. Milo covered the seed with
-soft soil. Pippa brought a small cup of water. Every morning they took turns caring for it.
-For several days they saw nothing. Milo almost gave up, but Pippa reminded him that growing
-takes time. At last a tiny green leaf appeared. By summer their seed had become a bright
-sunflower. Bees visited it, and Grandma Owl smiled. Milo and Pippa learned that patience
-and working together could turn something small into something wonderful."""
-SCENES = [
-    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
-    "stand beside a sunny cottage garden gate. Pippa points gently at a tiny seed on the ground. "
-    "Milo kneels to look, his ears lifting with curiosity. Cheerful original storybook cartoon, "
-    "medium shot, camera steady, smooth gentle action. Show only this opening moment.",
-    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
-    "are beside the same sunny cottage garden gate. Pippa carefully holds one tiny seed in her "
-    "open paw and shows it to Milo. Milo smiles and tilts his head. Original colorful 2D "
-    "storybook cartoon, medium close shot, steady camera, gentle natural motion.",
-    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
-    "walk slowly inside a sunny cottage garden. Milo points toward a shady patch beside a tree. "
-    "Pippa looks toward a sunny patch of soft soil. They calmly consider where their seed "
-    "could grow. Original colorful 2D storybook cartoon, wide shot, steady camera, gentle motion.",
-    "Milo, a small orange fox with a blue scarf, and Pippa, a white rabbit with a yellow vest, "
-    "kneel beside an empty sunny patch of soil in their cottage garden. Pippa holds a tiny seed "
-    "in her open paw. They look at each other with curious hopeful smiles, wondering what "
-    "will happen next. Original colorful 2D storybook cartoon, steady medium shot, gentle motion. "
-    "Do not show a grown plant or reveal the ending."
-]
-OUTPUT_DIR = "/kaggle/working/cartoon-teaser" if os.path.isdir('/kaggle/working') else '/content/cartoon-teaser'
-# 81 frames at 16 fps = 5.06 seconds per scene; four scenes produce 20.25 seconds.
-# Use one scene for a quick trial, up to five for a 25-second teaser.
-video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7)
-display(Video(str(video), embed=True))
-''')
+    markdown(f"## {example['title']}\n\nThis {profile} example contains four original opening scenes (~20.25 seconds).")
+    config = (
+        "# Original story example. Keep paid stories and exports private.\n"
+        "import os\n\nfrom IPython.display import Video, display\n\n"
+        f"FULL_STORY = {example['story']!r}\n"
+        f"SCENES = {example['scenes']!r}\n"
+        "OUTPUT_DIR = '/kaggle/working/cartoon-teaser' if os.path.isdir('/kaggle/working') else '/content/cartoon-teaser'\n"
+        "# Four scenes: 81 frames each at 16 fps = 20.25 seconds. Maximum five scenes.\n"
+        "video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7)\n"
+        "display(Video(str(video), embed=True))\n"
+    )
+    code(config)
     code("""# Download for PRIVATE human review. Nothing is published here.
 import shutil
 
@@ -139,10 +113,12 @@ scheduler stays separate and will not silently route jobs into this notebook.
         "display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": {"name": "python", "version": "3.12"}},
         "nbformat": 4, "nbformat_minor": 5}
-    target = root / "notebooks/free_cartoon_teaser.ipynb"
+    filename = "colab_cartoon_teaser.ipynb" if profile == "colab" else "free_cartoon_teaser.ipynb"
+    target = root / "notebooks" / filename
     target.write_text(json.dumps(notebook, indent=2) + "\n", encoding="utf-8")
     return target
 
 
 if __name__ == "__main__":
-    print(build())
+    print(build("kaggle"))
+    print(build("colab"))
