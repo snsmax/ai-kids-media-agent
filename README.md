@@ -21,6 +21,14 @@ Local development: Python 3.12+, `python -m venv .venv`, activate the environmen
 
 Published catalog entries are available through the Telegram bot's `/catalog`; `/start` and `/help` explain parent-facing usage. There are no checkout or fulfilment claims.
 
+## 20 videos every day
+
+Compose now includes a durable scheduler. By default it queues **20 video-generation workflows daily at 09:00 IST (Asia/Kolkata)**, with different themes for ages 4–7. A running scheduler checks once a minute, so dispatch may occur up to a minute after the scheduled time. Set `DAILY_VIDEO_COUNT`, `DAILY_VIDEO_HOUR_IST`, and the daily age range in `.env`; disable with `DAILY_VIDEOS_ENABLED=false`. Run `python -m media.scheduler` for local development, alongside API and worker.
+
+Both real text and video gateways must be configured before jobs are queued. Each workflow requests a vertical 9:16, 30–60 second video for Reels. Those are provider instructions, not a claim that this backend verifies video dimensions/duration; inspect the returned media and confirm your gateway supports this output format. These are **drafts for human review**, not automatic Instagram posts. Instagram account authorization, upload/publish adapters and Meta API integration remain unimplemented.
+
+`GET /schedule` with operator credentials shows the configured daily target and recent durable batches. Unique date/slot job keys prevent duplicate queues across restarts or multiple scheduler instances. A frozen daily manifest preserves that day's count/prompts even if config changes mid-day. Partially enqueued batches resume on restart. If the service is down all day, it does not manufacture backlog batches for days when it never ran. Starting after 09:00 queues the current day's batch immediately. Generation success depends on provider quotas/budgets and job failures; 20 queued jobs does not guarantee 20 completed videos. Manual workflows are additional to this scheduled daily target.
+
 ## Telegram
 
 Set `TELEGRAM_TOKEN` and a random `TELEGRAM_WEBHOOK_SECRET`. Register your public HTTPS `/telegram/webhook` URL using Telegram `setWebhook`, passing the same `secret_token` and `allowed_updates=["message"]`. Registration is deliberately an operator action; app startup never changes a live bot. The bot needs permission to send to the configured channel. Incoming updates validate `X-Telegram-Bot-Api-Secret-Token`, deduplicate by `update_id`, accept only private-chat supported commands, and discard arbitrary conversations. No child profile or free-form message is persisted. Restrict endpoint request sizes/rates at the proxy. See the [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook).

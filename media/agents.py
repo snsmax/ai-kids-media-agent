@@ -17,7 +17,8 @@ class StorybookAgent:
 
 class VideoAgent:
     def run(self, providers, story, job_id):
-        return providers.video.generate(story, job_id + ":video")
+        prompt = "Create a vertical 9:16 video, 30-60 seconds, suitable for Instagram Reels. "
+        return providers.video.generate(prompt + story, job_id + ":video")
 
 
 class MarketingAgent:

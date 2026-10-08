@@ -21,6 +21,8 @@ def migrate(db):
     db.reviews.create_index([("content_id", ASCENDING), ("digest", ASCENDING)])
     db.events.create_index([("workflow_id", ASCENDING), ("at", ASCENDING)])
     db.schema_versions.update_one({"_id": 1}, {"$setOnInsert": {"applied_at": now()}}, upsert=True)
+    db.daily_batches.create_index([("queued", ASCENDING), ("day", ASCENDING)])
+    db.schema_versions.update_one({"_id": 2}, {"$setOnInsert": {"applied_at": now()}}, upsert=True)
 
 
 if __name__ == "__main__":

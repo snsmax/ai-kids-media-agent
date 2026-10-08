@@ -20,8 +20,15 @@ class Settings(BaseSettings):
     provider_key: SecretStr = SecretStr("")
     lease_seconds: int = Field(default=600, ge=300, le=3600)
     max_attempts: int = Field(default=3, ge=1, le=10)
+    daily_videos_enabled: bool = True
+    daily_video_count: int = Field(default=20, ge=1, le=200)
+    daily_video_hour_ist: int = Field(default=9, ge=0, le=23)
+    daily_video_age_min: int = Field(default=4, ge=3, le=17)
+    daily_video_age_max: int = Field(default=7, ge=3, le=17)
 
     def validate_security(self):
+        if self.daily_video_age_min > self.daily_video_age_max:
+            raise ValueError("Daily video age range is invalid")
         operator = self.operator_key.get_secret_value()
         reviewer = self.reviewer_key.get_secret_value()
         if len(operator) < 32 or len(reviewer) < 32 or operator == reviewer:

@@ -108,7 +108,7 @@ def create_app(config=None, db=None, broker=None, providers=None):
         try:
             db.command("ping")
             broker.ping()
-            if not db.schema_versions.find_one({"_id": 1}):
+            if not db.schema_versions.find_one({"_id": 2}):
                 raise ValueError("Migrations required")
         except (PyMongoError, redis.RedisError, ValueError):
             raise HTTPException(503, "Dependencies unavailable") from None
@@ -188,6 +188,17 @@ def create_app(config=None, db=None, broker=None, providers=None):
     @app.get("/analytics", dependencies=[Depends(operator)])
     def analytics():
         return AnalyticsAgent().snapshot(db)
+
+    @app.get("/schedule", dependencies=[Depends(operator)])
+    def schedule():
+        return {
+            "enabled": config.daily_videos_enabled,
+            "daily_video_count": config.daily_video_count,
+            "hour": config.daily_video_hour_ist,
+            "timezone": "Asia/Kolkata",
+            "providers_configured": bool(config.text_provider_url and config.video_provider_url),
+            "recent_batches": list(db.daily_batches.find({}, {"briefs": 0}).sort("day", -1).limit(7)),
+        }
 
     @app.post("/telegram/webhook", status_code=202)
     def webhook(update: dict, x_telegram_bot_api_secret_token: str = Header(default="")):
