@@ -1,0 +1,40 @@
+# Free staging only: sleeps when idle. No customer payments or automatic publishing.
+services:
+  - type: web
+    name: tinytale-backend-staging
+    runtime: docker
+    plan: free
+    dockerfilePath: ./deploy/huggingface/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: OPERATOR_KEY
+        generateValue: true
+      - key: REVIEWER_KEY
+        generateValue: true
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: PUBLIC_DOMAIN
+        sync: false
+      - key: MERCHANT_SUPPORT
+        value: '@surya25031993'
+      - key: TELEGRAM_CHANNEL_ID
+        value: '@wondertalekids'
+      - key: TELEGRAM_SALES_ENABLED
+        value: 'false'
+      - key: DAILY_VIDEOS_ENABLED
+        value: 'false'
+      - key: INSTAGRAM_AUTO_PUBLISH
+        value: 'false'
+      - key: YOUTUBE_AUTO_PUBLISH
+        value: 'false'
+      - key: TELEGRAM_AUTO_PROMOTE
+        value: 'false'
+      - key: LOCAL_VIDEO_OUTPUT_DIR
+        value: /data/videos
