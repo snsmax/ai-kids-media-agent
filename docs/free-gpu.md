@@ -9,11 +9,11 @@ that is a model download, not a hosted inference service.
 
 Two separate original examples are provided:
 
-- Kaggle: `notebooks/free_cartoon_teaser.ipynb` — Milo and Pippa's mystery seed.
+- Kaggle: `notebooks/free_cartoon_teaser.ipynb` â€” Milo and Pippa's mystery seed.
 - Colab: [Open Nori and Pip's missing kite in Colab](https://colab.research.google.com/github/snsmax/ai-kids-media-agent/blob/main/notebooks/colab_cartoon_teaser.ipynb).
 
-For Colab, sign in, save a private copy in Drive, choose Runtime → Change runtime
-type → T4 GPU, then Run all. Decline paid compute upgrades. The first cell checks
+For Colab, sign in, save a private copy in Drive, choose Runtime â†’ Change runtime
+type â†’ T4 GPU, then Run all. Decline paid compute upgrades. The first cell checks
 GPU/Internet before downloading dependencies. Free GPU allocation and host RAM
 are not guaranteed; this notebook has been tested for code validity locally,
 but a real Colab GPU run must be verified separately. Download the ZIP when it
@@ -35,7 +35,7 @@ are public original samples; replace them in your private copy for paid products
    opening scene prompt in the configuration cell. A complete original example is
    provided, so an initial test does not need a separate paid text service.
 5. Run generation for **one scene first**. Each scene is 81 frames at 16 fps,
-   approximately five seconds. Up to three scenes can form a 5–15 second teaser.
+   approximately five seconds. Up to three scenes can form a 5â€“15 second teaser.
    Reuse the exact character descriptions across scenes; consistency is not guaranteed.
 6. Preview and download `cartoon-teaser-export.zip`. Colab offers a download; Kaggle
    exposes it in the Output panel. The export contains the MP4 plus a private
@@ -46,7 +46,7 @@ cartoon styling rather than drawing block characters. It generates silent footag
 voice, captions and product-specific Telegram links are not included. The model
 revision and selected Python dependencies are pinned, but the host-supplied PyTorch
 runtime varies. Backend tests do not prove model inference works on every free GPU.
-A real five-second silent cartoon was generated successfully on a signed-in Kaggle T4 session.
+A real 20.25-second silent cartoon was generated successfully on a signed-in Kaggle T4 session, with its checksum and all 324 frames verified locally.
 
 The first Kaggle test was accepted with GPU enabled in its saved metadata, but
 execution failed: CUDA was unavailable and package downloads failed DNS resolution.
@@ -60,9 +60,16 @@ A subsequent session confirmed a Tesla T4 and working Internet, but full-size
 attention exhausted VRAM. The notebook now uses FP16 on T4 (native BF16 only on
 newer GPUs), requests 368x640 footage and permits only fused SDPA attention
 backends. This avoids silently using the attention math implementation that
-requested approximately 48 GB. These settings produced a verified five-second cartoon on Kaggle.
+requested approximately 48 GB. These settings produced a verified 20.25-second cartoon on Kaggle.
 Longer clips generate each scene independently and save scene checkpoints. The importer still
 normalizes successful footage to 720x1280, which is upscaling, not extra detail.
+
+The Colab example enables `low_ram=True`. It loads the text encoder directly on
+the GPU, encodes prompts, releases that encoder, then loads the video model.
+This avoids holding both large models in host RAM at once. Encoded prompts move
+to the inference GPU before each scene. The initial combined loader restarted
+the free Colab kernel; the staged loader has been observed generating frames
+on a free T4. This is not yet a verified completed Colab export.
 
 Free GPU availability, RAM, disk, quotas and session lifetimes vary. CPU offloading
 reduces VRAM pressure but needs host RAM. A failed or unavailable GPU session stops
@@ -83,7 +90,7 @@ python -m media.import_teaser /path/to/cartoon-teaser
 ```
 
 The importer validates manifest schema and checksum, rejects path traversal and
-symlinks, accepts MP4 files up to 100 MB and footage of 1–30 seconds, and transcodes
+symlinks, accepts MP4 files up to 100 MB and footage of 1â€“30 seconds, and transcodes
 to silent vertical 720x1280 H.264 at 24 fps. It preserves the complete story as
 content, with the teaser as its video asset. Re-importing the same export reuses
 the record. It always creates a **pending_review** draft, never a review or payment

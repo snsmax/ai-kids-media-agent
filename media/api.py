@@ -103,11 +103,13 @@ def create_app(config=None, db=None, broker=None, providers=None, telegram=None)
         content = db.content.find_one({"assets": {"$elemMatch": {"type": "video", "url": url}}})
         if not content or content.get("status") not in ("approved", "publishing", "published"):
             raise HTTPException(404, "Video not found")
-        if not db.reviews.find_one({"content_id": content["_id"], "digest": digest(content),
-                                   "approved": True, "reviewer": "human"}):
+        if not db.reviews.find_one(
+            {"content_id": content["_id"], "digest": digest(content), "approved": True, "reviewer": "human"}
+        ):
             raise HTTPException(404, "Video not found")
-        return FileResponse(video_file(filename), media_type="video/mp4",
-                            headers={"Cache-Control": "no-store"})
+        return FileResponse(
+            video_file(filename), media_type="video/mp4", headers={"Cache-Control": "no-store"}
+        )
 
     @app.exception_handler(JobConflict)
     async def job_conflict(request, exc):
@@ -124,8 +126,9 @@ def create_app(config=None, db=None, broker=None, providers=None, telegram=None)
 
     @app.get("/operator/videos/{filename}", dependencies=[Depends(operator)])
     def preview_video(filename: str):
-        return FileResponse(video_file(filename), media_type="video/mp4",
-                            headers={"Cache-Control": "no-store"})
+        return FileResponse(
+            video_file(filename), media_type="video/mp4", headers={"Cache-Control": "no-store"}
+        )
 
     def reviewer(x_api_key: str = Header(default="")):
         auth(config.reviewer_key, x_api_key)
@@ -249,6 +252,19 @@ def create_app(config=None, db=None, broker=None, providers=None, telegram=None)
             raise HTTPException(
                 422, "A reviewed video and caption within Instagram limits are required"
             ) from None
+
+    @app.post("/content/{content_id}/dispatch/{channel}", status_code=202, dependencies=[Depends(operator)])
+    def dispatch(content_id: str, channel: Literal["youtube", "telegram"]):
+        from media.publishing import queue
+
+        try:
+            return {"job_id": queue(db, broker, config, content(content_id), channel)}
+        except PermissionError:
+            raise HTTPException(409, "Exact human safety approval required") from None
+        except UnconfiguredProvider:
+            raise HTTPException(503, "Channel configuration required") from None
+        except (ValueError, OSError, StopIteration):
+            raise HTTPException(422, "Reviewed caption and supported video required") from None
 
     @app.post("/products", status_code=201, dependencies=[Depends(operator)])
     def product_create(product: ProductCreate):

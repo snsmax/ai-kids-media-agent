@@ -40,6 +40,15 @@ jobs:
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           INSTAGRAM_USER_ID: ${{ vars.INSTAGRAM_USER_ID }}
           INSTAGRAM_API_VERSION: ${{ vars.INSTAGRAM_API_VERSION }}
+          INSTAGRAM_AUTO_PUBLISH: ${{ vars.INSTAGRAM_AUTO_PUBLISH || 'true' }}
+          TELEGRAM_AUTO_PROMOTE: ${{ vars.TELEGRAM_AUTO_PROMOTE || 'false' }}
+          TELEGRAM_CHANNEL_ID: ${{ vars.TELEGRAM_CHANNEL_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          YOUTUBE_AUTO_PUBLISH: ${{ vars.YOUTUBE_AUTO_PUBLISH || 'false' }}
+          YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           BATCH_MODE: ${{ inputs.mode || 'all' }}
         run: |
           python - <<'PY'
@@ -51,7 +60,13 @@ jobs:
               if os.environ.get('VIDEO_PROVIDER', 'local') == 'gateway':
                   required += ['VIDEO_PROVIDER_URL']
           if mode in ('all', 'publish'):
-              required += ['INSTAGRAM_ACCESS_TOKEN', 'INSTAGRAM_USER_ID', 'INSTAGRAM_API_VERSION']
+              for flag, names in (
+                  ('INSTAGRAM_AUTO_PUBLISH', ['INSTAGRAM_ACCESS_TOKEN', 'INSTAGRAM_USER_ID', 'INSTAGRAM_API_VERSION']),
+                  ('TELEGRAM_AUTO_PROMOTE', ['TELEGRAM_TOKEN', 'TELEGRAM_CHANNEL_ID']),
+                  ('YOUTUBE_AUTO_PUBLISH', ['YOUTUBE_CHANNEL_ID', 'YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REFRESH_TOKEN']),
+              ):
+                  if os.environ.get(flag, '').lower() == 'true':
+                      required += names
           missing = [key for key in required if not os.environ.get(key)]
           enabled = os.environ.get('ENABLED', '').lower() == 'true'
           ready = enabled and not missing
@@ -85,7 +100,16 @@ jobs:
       INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
       INSTAGRAM_USER_ID: ${{ vars.INSTAGRAM_USER_ID }}
       INSTAGRAM_API_VERSION: ${{ vars.INSTAGRAM_API_VERSION }}
-      INSTAGRAM_AUTO_PUBLISH: 'true'
+      INSTAGRAM_AUTO_PUBLISH: ${{ vars.INSTAGRAM_AUTO_PUBLISH || 'true' }}
+      TELEGRAM_AUTO_PROMOTE: ${{ vars.TELEGRAM_AUTO_PROMOTE || 'false' }}
+      TELEGRAM_CHANNEL_ID: ${{ vars.TELEGRAM_CHANNEL_ID }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      YOUTUBE_AUTO_PUBLISH: ${{ vars.YOUTUBE_AUTO_PUBLISH || 'false' }}
+      YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY || 'private' }}
       DAILY_VIDEO_COUNT: '20'
       DAILY_VIDEO_HOUR: '9'
       DAILY_VIDEO_TIMEZONE: America/New_York

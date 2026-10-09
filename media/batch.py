@@ -10,9 +10,10 @@ import structlog
 
 from media.agents import MasterAgent
 from media.config import settings
-from media.instagram import Instagram, queue_approved_videos
+from media.instagram import Instagram
 from media.logging import configure
 from media.providers import Providers, Telegram
+from media.publishing import destination, queue_all
 from media.scheduler import schedule_daily
 from media.store import connect, migrate
 from media.worker import run_one
@@ -26,6 +27,13 @@ def run_batch(
         raise ValueError("Unsupported batch mode")
     if mode in ("all", "publish") and config.instagram_auto_publish and not Instagram(config).configured:
         raise ValueError("Instagram account configuration required for publishing mode")
+    if mode in ("all", "publish"):
+        for channel, enabled in (
+            ("youtube", config.youtube_auto_publish),
+            ("telegram", config.telegram_auto_promote),
+        ):
+            if enabled:
+                destination(config, channel)
     kinds = set()
     if mode in ("all", "generate"):
         result = schedule_daily(db, broker, config, timestamp)
@@ -33,8 +41,8 @@ def run_batch(
             raise ValueError("Real text/video provider endpoints must be configured")
         kinds.add("create")
     if mode in ("all", "publish"):
-        queue_approved_videos(db, broker, config)
-        kinds.add("instagram_publish")
+        queue_all(db, broker, config)
+        kinds.update(("instagram_publish", "youtube_publish", "telegram_promote"))
     selected = [
         job["_id"]
         for job in db.jobs.find(

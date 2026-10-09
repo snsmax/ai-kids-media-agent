@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     instagram_user_id: str = ""
     instagram_api_version: str = ""
     instagram_auto_publish: bool = True
+    telegram_auto_promote: bool = False
+    telegram_channel_id: str = ""
+    youtube_auto_publish: bool = False
+    youtube_channel_id: str = ""
+    youtube_client_id: str = ""
+    youtube_client_secret: SecretStr = SecretStr("")
+    youtube_refresh_token: SecretStr = SecretStr("")
+    youtube_privacy: str = Field(default="private", pattern=r"^(private|unlisted|public)$")
     telegram_sales_enabled: bool = True
     product_price_stars: int = Field(default=250, ge=1, le=100000)
     reference_price_usd_cents: int = Field(default=500, ge=1)
@@ -61,7 +69,12 @@ class Settings(BaseSettings):
         reviewer = self.reviewer_key.get_secret_value()
         if len(operator) < 32 or len(reviewer) < 32 or operator == reviewer:
             raise ValueError("Distinct operator/reviewer secrets of at least 32 characters are required")
-        for url in (self.text_provider_url, self.image_provider_url, self.video_provider_url, self.voice_provider_url):
+        for url in (
+            self.text_provider_url,
+            self.image_provider_url,
+            self.video_provider_url,
+            self.voice_provider_url,
+        ):
             if url and not url.startswith("https://"):
                 raise ValueError("Provider endpoints must use HTTPS")
 

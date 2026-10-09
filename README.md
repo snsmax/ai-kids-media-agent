@@ -1,6 +1,8 @@
 # Children's media operations backend
 
-FastAPI + MongoDB + Redis, with mandatory human safety review, daily video generation, real HTTP adapters for Instagram Reels publishing and Telegram Stars invoices/delivery/refunds. The primary market is the USA (`en-US`); Europe is secondary and Asia lower priority. These are audience priorities, not buyer geolocation or geographic exclusion. Live accounts, provider gateways and deployment configuration are still required. This backend is not a certification of content safety and does not include video editing, a provider-specific AI SDK, or a full identity/OAuth onboarding UI.
+FastAPI + MongoDB + Redis, with mandatory human safety review, daily video generation, real HTTP adapters for Instagram Reels, YouTube uploads, Telegram teaser posts and Telegram Stars invoices/delivery/refunds. The primary market is the USA (`en-US`); Europe is secondary and Asia lower priority. These are audience priorities, not buyer geolocation or geographic exclusion. Live accounts, provider gateways and deployment configuration are still required. This backend is not a certification of content safety and does not include video editing, a provider-specific AI SDK, or a full identity/OAuth onboarding UI.
+
+See [publishing.md](docs/publishing.md) to connect all three channels and the reviewed teaser-to-paid-story funnel. Upload transports are implemented; live credentials and an always-on server are still required.
 
 ## Start
 

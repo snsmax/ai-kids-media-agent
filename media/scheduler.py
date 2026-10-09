@@ -9,9 +9,9 @@ import structlog
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from media.config import settings
-from media.instagram import queue_approved_videos
 from media.jobs import enqueue
 from media.logging import configure
+from media.publishing import queue_all
 from media.store import connect, now
 
 THEMES = (
@@ -97,7 +97,7 @@ def main():
     while not stopping.is_set():
         try:
             result = schedule_daily(db, broker, config)
-            queue_approved_videos(db, broker, config)
+            queue_all(db, broker, config)
             if result["state"] == "scheduled":
                 log.info("daily_video_jobs_queued", count=len(result["job_ids"]))
             elif result["state"] == "waiting_for_providers":

@@ -20,6 +20,8 @@ EXTERNAL_KINDS = [
     "deliver_order",
     "refund_order",
     "instagram_publish",
+    "youtube_publish",
+    "telegram_promote",
 ]
 
 

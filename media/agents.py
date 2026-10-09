@@ -73,7 +73,7 @@ class SocialPublishingAgent:
         require_approval(db, content)
         if destination["channel"] != "telegram":
             raise ValueError("Only Telegram publishing is implemented")
-        return telegram.send(destination["chat_id"], content["marketing"] + "\n\n" + content["story"])
+        return telegram.send(destination["chat_id"], content["marketing"])
 
 
 class AnalyticsAgent:
@@ -97,6 +97,10 @@ class MasterAgent:
 
     def execute(self, job):
         payload, job_id = job["payload"], job["_id"]
+        if job["kind"] in ("youtube_publish", "telegram_promote"):
+            from media.publishing import publish
+
+            return publish(self.db, job, self.config, self.telegram)
         if job["kind"] == "instagram_publish":
             from media.instagram import Instagram, publish_video
 
