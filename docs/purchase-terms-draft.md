@@ -4,7 +4,8 @@
 Fill in seller identity, actual product format, refund policy and effective date
 before using it as customer terms. The owner must approve those business commitments.
 
-Seller: [legal seller name and applicable business contact details].
+Public brand: TinyTale Adventures.
+Seller: [owner must supply their legal name or registered business name and applicable business contact details].
 Effective date: [date of publication].
 Bot: @TinyTaleAdventures_bot. Customer support: @surya25031993.
 
@@ -34,10 +35,11 @@ reference. Do not send passwords, bot tokens or payment-card details.
 Contact @surya25031993 or use /paysupport for payment or delivery issues. The seller,
 rather than Telegram support, handles purchases from this bot.
 
-[Owner decision required: describe how failed delivery, duplicate charges,
-incorrect or defective files and other refund requests are handled. Specify any
-response timeframe only if you can meet it. Do not publish a blanket exclusion
-of mandatory consumer rights.]
+The seller offers refunds for failed delivery, duplicate charges and incorrect
+or defective files. Contact @surya25031993 with the order reference or receipt
+and describe the problem. The seller will verify the issue before processing
+the refund. This policy does not promise a specific support response time.
+Other requests can be submitted to the same support contact for review.
 
 Refunds approved by the seller are processed in Telegram Stars using Telegram's
 refund mechanism. Applicable mandatory consumer rights remain unaffected.
