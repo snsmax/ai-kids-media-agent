@@ -38,7 +38,7 @@ def mock_tools(monkeypatch, duration=5):
     def run(command, **kwargs):
         if command[0] == "ffprobe":
             return subprocess.CompletedProcess(command, 0, json.dumps({"format": {"duration": duration}}))
-        assert "-an" in command and "-t" in command
+        assert "-an" not in command and "0:a:0?" in command and "-t" in command
         Path(command[-1]).write_bytes(b"mock-normalized-video")
         return subprocess.CompletedProcess(command, 0)
 

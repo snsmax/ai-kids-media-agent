@@ -56,6 +56,8 @@ except (urllib.error.URLError, TimeoutError) as exc:
 # CPU RAM and disk are also required; model weights are a substantial download.
 """)
     code("""# GPU-only dependencies. Stop immediately if installation fails.
+import os
+import shutil
 import subprocess
 import sys
 
@@ -63,18 +65,27 @@ subprocess.run([
     sys.executable, "-m", "pip", "install", "diffusers==0.35.1", "transformers==4.56.2",
     "accelerate==1.10.1", "ftfy==6.3.1", "imageio-ffmpeg==0.6.0", "sentencepiece==0.2.1"
 ], check=True)
+if not shutil.which("espeak-ng"):
+    prefix = [] if os.geteuid() == 0 else ["sudo"]
+    subprocess.run(prefix + ["apt-get", "update", "-qq"], check=True)
+    subprocess.run(prefix + ["apt-get", "install", "-y", "espeak-ng"], check=True)
 """)
     source = (root / "notebooks/wan_generate.py").read_text(encoding="utf-8")
-    code(source.split('"""', 2)[2].lstrip())
+    audio_source = (root / "notebooks/teaser_audio.py").read_text(encoding="utf-8")
+    gpu_source = source.split('"""', 2)[2].lstrip()
+    for duplicate in ("import hashlib\n", "import json\n", "from pathlib import Path\n"):
+        gpu_source = gpu_source.replace(duplicate, "")
+    code("import hashlib\nimport json\n" + audio_source.split('"""', 2)[2].lstrip() + "\n\n" + gpu_source)
     markdown(f"## {example['title']}\n\nThis {profile} example contains four original opening scenes (~20.25 seconds).")
     config = (
         "# Original story example. Keep paid stories and exports private.\n"
         "import os\n\nfrom IPython.display import Video, display\n\n"
         f"FULL_STORY = {example['story']!r}\n"
         f"SCENES = {example['scenes']!r}\n"
+        f"NARRATION = {example['narration']!r}\n"
         "OUTPUT_DIR = '/kaggle/working/cartoon-teaser' if os.path.isdir('/kaggle/working') else '/content/cartoon-teaser'\n"
         "# Four scenes: 81 frames each at 16 fps = 20.25 seconds. Maximum five scenes.\n"
-        f"video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7, low_ram={profile == 'colab'})\n"
+        f"video = generate_teaser(FULL_STORY, SCENES, OUTPUT_DIR, seed=42, age_min=4, age_max=7, low_ram={profile == 'colab'}, narration=NARRATION, audio_renderer=add_audio)\n"
         "display(Video(str(video), embed=True))\n"
     )
     code(config)

@@ -119,3 +119,29 @@ cartoon franchise characters are used in the original example.
 Rebuild the notebook after editing its source with
 `python scripts/build_gpu_notebook.py`. It deliberately has no saved outputs,
 credentials, automatic publication or cloud deployment claims.
+
+
+## Free narration and music
+
+Fresh Colab and Kaggle notebooks provide a separate `NARRATION` opening script
+and mix audio after generation. They install eSpeak NG through Ubuntu's package
+manager and use a real offline English voice. Quiet background music is synthesized
+locally from an original pentatonic pattern. No TTS API key, paid service or
+commercial music recording is used. If audio synthesis fails, the run stops.
+
+The final manifest points to `teaser-with-voice-music.mp4` and includes narration,
+voice engine, music source and the updated checksum. The importer now preserves
+optional audio and creates pending-review content. Silent exports remain supported.
+Watch and listen to the full edited video before approving it; a silent video's
+previous review does not cover a new soundtrack.
+
+The edited Milo/Pippa sample uses Windows' Microsoft Zira SAPI voice. Linux GPU
+notebooks use eSpeak NG, which sounds more robotic and will not match Zira exactly.
+Neither is a neural actor voice. A different actual narrated WAV can be supplied
+with `add_audio(..., voice_wav=...)`. The mixer copies the video stream unchanged
+and rejects excessively long narration rather than cutting words.
+
+Existing Drive copies and saved Kaggle notebook versions do not update when the
+repository changes. Open/import the updated repository notebook for future runs.
+Adding audio to an existing clip does not rerun GPU inference. Free GPU quotas
+and availability still apply to generating animation.

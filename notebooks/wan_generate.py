@@ -10,7 +10,8 @@ MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
 MODEL_REVISION = "b7f0d36dfbc20355d3184ad63c709d888cdb640f"
 
 
-def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_max=7, low_ram=False):
+def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_max=7, low_ram=False,
+                    narration=None, audio_renderer=None):
     import gc
 
     import torch
@@ -98,6 +99,19 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
         frames.extend(video)
     target = output_dir / "teaser.mp4"
     export_to_video(frames, str(target), fps=16)
+    audio_metadata = {}
+    if narration:
+        import imageio_ffmpeg
+
+        if audio_renderer is None:
+            from notebooks.teaser_audio import add_audio
+
+            audio_renderer = add_audio
+        audio_target = output_dir / "teaser-with-voice-music.mp4"
+        audio_metadata = audio_renderer(
+            target, audio_target, narration, ffmpeg=imageio_ffmpeg.get_ffmpeg_exe()
+        )
+        target = audio_target
     manifest = {
         "schema_version": 1, "story": full_story.strip(), "age_min": age_min, "age_max": age_max,
         "language": "en-US", "market": "US",
@@ -105,6 +119,7 @@ def generate_teaser(full_story, scenes, output_dir, *, seed=42, age_min=4, age_m
         "video_file": target.name, "video_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
         "model_id": MODEL_ID, "model_revision": MODEL_REVISION, "seed": seed,
         "scene_prompts": scenes,
+        **audio_metadata,
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return target

@@ -31,6 +31,9 @@ class TeaserManifest(BaseModel):
     model_revision: str = Field(pattern=r"^[a-f0-9]{40}$")
     seed: int = Field(ge=0, le=2**32 - 1)
     scene_prompts: list[str] = Field(min_length=1, max_length=5)
+    narration: str | None = Field(default=None, min_length=10, max_length=1000)
+    voice_engine: str | None = Field(default=None, max_length=100)
+    music_source: str | None = Field(default=None, max_length=100)
 
     @model_validator(mode="after")
     def validate_brief(self):
@@ -53,7 +56,7 @@ def import_teaser(db, config, directory):
             raise ValueError("Video checksum mismatch")
     if not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?", config.public_domain):
         raise ValueError("Set PUBLIC_DOMAIN to the HTTPS API hostname before importing")
-    key = hashlib.sha256((manifest.model_dump_json() + config.public_domain).encode()).hexdigest()
+    key = hashlib.sha256((manifest.model_dump_json(exclude_none=True) + config.public_domain).encode()).hexdigest()
     workflow_id = "gpu-import:" + key
     existing = db.content.find_one({"workflow_id": workflow_id})
     if existing:
@@ -74,11 +77,11 @@ def import_teaser(db, config, directory):
     with tempfile.TemporaryDirectory(dir=output) as scratch:
         temporary = Path(scratch) / "normalized.mp4"
         subprocess.run([
-            ffmpeg, "-v", "error", "-y", "-i", str(source), "-map", "0:v:0", "-an",
+            ffmpeg, "-v", "error", "-y", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0?",
             "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,"
                    "pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24",
             "-t", "30", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-            "-movflags", "+faststart", str(temporary),
+            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(temporary),
         ], check=True, capture_output=True, timeout=240)
         # Never replace an approved asset's bytes on a replay.
         if not target.exists():
@@ -98,6 +101,8 @@ def import_teaser(db, config, directory):
             "model_id": manifest.model_id, "revision": manifest.model_revision,
             "seed": manifest.seed, "scene_prompts": manifest.scene_prompts,
             "source_sha256": manifest.video_sha256, "source": "interactive-gpu-notebook",
+            "narration": manifest.narration, "voice_engine": manifest.voice_engine,
+            "music_source": manifest.music_source,
         },
     }
     content.update(QualityControlAgent().run(content))
